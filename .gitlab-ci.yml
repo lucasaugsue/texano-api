@@ -1,0 +1,39 @@
+variables:
+  SSH_PRIVATE_KEY: $SSH_STARTUPS_PRIVATE_KEY
+    
+deploy_staging:
+  stage: deploy
+  environment:
+    name: production
+  before_script:
+    - apt-get update -qq
+    - apt-get install -qq git
+    - 'which ssh-agent || ( apt-get install -qq openssh-client )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  script:
+    - ssh ubuntu@ec2-54-207-148-68.sa-east-1.compute.amazonaws.com "sudo su -c 'cd /home/ubuntu/texano/api-staging && git checkout develop && git pull && yarn install && yarn build && knex migrate:latest && pm2 restart texano-api-staging'"
+  only:
+    variables:
+      - ($CI_COMMIT_BRANCH == "develop")
+    
+deploy_production:
+  stage: deploy
+  environment:
+    name: production
+  before_script:
+    - apt-get update -qq
+    - apt-get install -qq git
+    - 'which ssh-agent || ( apt-get install -qq openssh-client )'
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  script:
+    - ssh ubuntu@ec2-54-207-148-68.sa-east-1.compute.amazonaws.com "sudo su -c 'cd /home/ubuntu/texano/api && git checkout master && git pull && yarn install && yarn build && knex migrate:latest && pm2 restart texano-api'"
+  only:
+    variables:
+      - ($CI_COMMIT_BRANCH == "master")
+    
